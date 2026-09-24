@@ -1,0 +1,13 @@
+# <type>(<scope>): <imperative summary>
+#
+# Why:
+# - Explain the reason for the change.
+#
+# Changes:
+# - Summarize the main changes.
+#
+# Validation:
+# - State what was checked, or write "Not run" with a reason.
+#
+# Types: feat, fix, docs, refactor, test, chore, ci, build, perf, revert.
+# Use English, lowercase type and scope, and a title of at most 72 characters.
