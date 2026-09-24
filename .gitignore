@@ -1,0 +1,36 @@
+# Local secrets and configuration
+.env
+.env.*
+!.env.example
+
+# Generated Markdown notes and plans; only the root README is tracked
+*.md
+!/README.md
+
+# Operating systems and editors
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Logs and temporary files
+*.log
+*.tmp
+*.temp
+
+# Common dependency and build directories
+node_modules/
+dist/
+build/
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Coverage
+coverage/
+.coverage
+htmlcov/
