@@ -14,11 +14,16 @@ integration access are available.
 - Server-checked application launch and RiskScreen download. The installer
   route checks a ready assignment, validates GitHub's release size and SHA-256
   metadata, and redirects to GitHub's temporary asset URL or streams its body.
-- Supabase OAuth 2.1 authorization UI in the portal. Confidential OAuth clients
+- Automatic Supabase OAuth authorization for assigned internal applications.
+  The portal validates the exact client, callback, scopes and current access
+  before approving either first use or a previously consented request.
+  Confidential OAuth clients
   with Authorization Code and PKCE are implemented in the neighboring Signora
   and Ticketing repositories. Ticketing refreshes OAuth tokens through the
   OAuth token endpoint; Signora issues a site session capped by the OAuth access
-  token lifetime.
+  token lifetime, with a maximum of 900 seconds. Expired Signora site sessions
+  and direct protected links restart OAuth through the portal automatically;
+  each site's `/login` remains available for native sign-in recovery.
 
 ## Local setup
 
@@ -29,7 +34,9 @@ integration access are available.
 2. Apply `db/001_portal.sql` and `db/002_runtime_access.sql` as a database owner.
    Set a strong password and `LOGIN` on `aideck_runtime` separately. Existing
    installations that applied an earlier runtime access script should also run
-   `db/003_remove_direct_auth_access.sql`. The runtime login uses narrowly
+   `db/003_remove_direct_auth_access.sql`. Apply `db/004_oauth_access.sql` before
+   enabling connected login. It adds a caller-scoped policy RPC and a
+   server-readable mapping of trusted application clients. The runtime login uses narrowly
    granted tables and never queries `auth.users`; identity lookup uses the
    Supabase Admin API on the server.
 3. Run `npm run dev`, then open `http://localhost:3000`. Use an existing Auth
@@ -59,19 +66,48 @@ Keep the rollout sequence and acceptance gates in local project notes.
    `SIGNORA_OAUTH_CLIENT_ID`, `SIGNORA_OAUTH_CLIENT_SECRET`, and
    `SIGNORA_OAUTH_REDIRECT_URI` in its web deployment, plus the client ID in its
    API deployment. Ticketing needs the corresponding `TICKETING_OAUTH_*` values.
-4. Verify first-use consent, direct sign-in, callback state validation, token
+4. Insert each exact client ID, callback and `array['email','profile']` into
+   `aideck.oauth_clients`, with its application key and `enabled=true`. Unknown,
+   disabled or ambiguous mappings fail closed. Set the issuer's access-token
+   lifetime to **900 seconds**. Ticketing rejects tokens with a longer remaining
+   lifetime; both clients recheck current assignment and their own active profile
+   when creating or renewing a site session.
+5. Verify first-use consent, direct sign-in, callback state validation, token
    refresh, session expiry, local sign-out, and global sign-out in a test
    environment before changing production Auth settings.
-5. Set `SIGNORA_OAUTH_READY=true` and `TICKETING_OAUTH_READY=true` in the portal
+6. Set `SIGNORA_OAUTH_READY=true` and `TICKETING_OAUTH_READY=true` in the portal
    only after each site's OAuth routes are deployed and its client is configured.
    Until then, its portal card opens the existing site with a clearly labeled
    separate sign-in, avoiding a missing OAuth route.
 
-The shared production project's OAuth server is still disabled. An isolated
-Supabase test project now has its own OAuth server and two local clients. Local
-browser tests reached both Signora and Ticketing dashboards from the portal
-without another password. The remaining HTTPS staging and production gates are
-listed in the rollout plan; production one-login is not enabled yet.
+An isolated local Supabase stack and three distinct local HTTPS hostnames are
+used for acceptance. The focused Playwright suite in Signora's
+`apps/web/playwright.portal.config.ts` requires explicit synthetic accounts and
+isolated service URLs, starts no database seed process and saves no session
+state. Its local certificate exception is restricted to the `.sso.test` fixtures.
+These checks do not replace testing stable public HTTPS staging origins.
+Production readiness settings have not been enabled by this change.
+
+Global logout revokes Supabase refresh sessions. Already issued access tokens
+and Signora site JWTs may continue until expiry (up to 900 seconds for this OAuth
+flow); native sign-in sessions have their existing lifetime. Local site logout
+clears only that site's session, so deliberate portal entry can sign in again.
+Assignment removal blocks the next authorization or renewal; it is not an
+instant cross-site browser-cookie deletion mechanism.
+
+Before onboarding new Signora users, reconcile AI Deck's existing provisioning
+queries for legacy `User`/`Organization` tables with Signora's current
+`users`/`organizations` schema. Existing-account SSO tests do not establish
+compatibility of that provisioning path. Session Track remains Upcoming.
+
+For future Windows Server hosting, use a supported Linux runtime (for example a
+Linux VM), pin production Supabase versions and expose its API gateway through
+Cloudflare Tunnel with a stable hostname. Keep Studio and administration routes
+private. AI Deck's `pg` connection and Signora's Prisma connection need a
+separately verified database transport from Vercel: publishing an HTTPS API via
+Tunnel does not supply a raw PostgreSQL connection. Server availability, DNS,
+external HTTPS checks, SMTP, backups/restore and data migration remain rollout
+prerequisites; the disposable CLI development stack is not a production server.
 
 ## RiskScreen release setup
 

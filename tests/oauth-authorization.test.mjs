@@ -35,7 +35,10 @@ test("portal automatically authorizes only active assigned internal users", { sk
     authorize.search = new URLSearchParams({ client_id: client.client_id, redirect_uri: redirectUri, response_type: "code", scope: "email profile", state: randomBytes(16).toString("hex"), code_challenge: createHash("sha256").update(randomBytes(32).toString("base64url")).digest("base64url"), code_challenge_method: "S256" }).toString();
     const start = await fetch(authorize, { redirect: "manual" });
     assert.equal(start.status, 302);
-    return start.headers.get("location");
+    const location = new URL(start.headers.get("location"));
+    assert.equal(location.pathname, "/oauth/consent");
+    // The local HTTPS browser fixture and Node transport reach the same portal.
+    return new URL(location.pathname + location.search, portal).toString();
   }
   const visit = (location, extra = {}) => fetch(location, { headers: { ...headers, ...extra }, redirect: "manual" });
   try {
