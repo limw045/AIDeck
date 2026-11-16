@@ -1,6 +1,20 @@
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { supabaseServer } from "@/lib/supabase/server";
+import type { OAuthApplication } from "@/lib/oauth-policy";
+
+export async function oauthApplications(): Promise<OAuthApplication[]> {
+  const result = await db().query<OAuthApplication>(
+    `select c.app_key as "appKey", c.client_id as "clientId", c.redirect_uri as "redirectUri", c.allowed_scopes as "allowedScopes"
+     from aideck.oauth_clients c join aideck.applications a on a.key=c.app_key
+     where c.enabled and a.enabled`,
+  );
+  const ready: Record<string, boolean> = {
+    signora: process.env.SIGNORA_OAUTH_READY === "true",
+    ticketing: process.env.TICKETING_OAUTH_READY === "true",
+  };
+  return result.rows.filter((app) => ready[app.appKey]);
+}
 
 export type Member = {
   user_id: string;
