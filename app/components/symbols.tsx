@@ -1,5 +1,6 @@
 const paths = {
   grid: "M3 3h7v7H3z M14 3h7v7h-7z M3 14h7v7H3z M14 14h7v7h-7z",
+  qr: "M3 3h6v6H3z M15 3h6v6h-6z M3 15h6v6H3z M15 15h2v2h-2z M21 15v3h-3v3h3 M12 3v3 M3 12h3 M12 9v6 M9 12h6 M12 18v3",
   arrow: "M5 12h14 M13 6l6 6-6 6",
   external: "M14 3h7v7 M21 3l-10 10 M10 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-5",
   shield: "M12 3 3 7v5c0 5 9 9 9 9s9-4 9-9V7l-9-4Z M8 12l3 3 5-6",

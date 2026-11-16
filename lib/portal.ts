@@ -82,5 +82,11 @@ export async function visibleApplications(member: Member): Promise<ApplicationCa
      order by a.sort_order, a.name`,
     [member.user_id],
   );
-  return rows.rows;
+  return [...rows.rows, {
+    key: "qrstudio",
+    name: "QR Studio",
+    description: "Create custom QR codes with templates, logos and colors. Export PNG or SVG directly from your browser.",
+    kind: "web",
+    url: "/qr-studio",
+  }];
 }

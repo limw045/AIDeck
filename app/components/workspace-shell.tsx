@@ -10,7 +10,9 @@ import { ThemeToggle } from "./theme-toggle";
 export type WorkspaceMember = { full_name: string; email: string; department: string; is_superadmin: boolean };
 
 export function WorkspaceShell({ member, canAdmin, children }: { member: WorkspaceMember; canAdmin: boolean; children: ReactNode }) {
-  const admin = usePathname().startsWith("/admin");
+  const pathname = usePathname();
+  const admin = pathname.startsWith("/admin");
+  const qrStudio = pathname.startsWith("/qr-studio");
   const [menuOpen, setMenuOpen] = useState(false);
   const initials = member.full_name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join("").toUpperCase();
   return <div className="workspace">
@@ -20,7 +22,8 @@ export function WorkspaceShell({ member, canAdmin, children }: { member: Workspa
       <div id="workspace-navigation" className={`sidebar-body ${menuOpen ? "is-open" : ""}`}>
         <div className="workspace-label"><span className="department-mark"><Icon name="building" size={18} /></span><div><strong>AI Department</strong><small>Your connected workspace</small></div></div>
         <nav className="sidebar-nav" aria-label="Main navigation"><p className="nav-label">WORKSPACE</p>
-          <Link href="/" className={`nav-item ${!admin ? "active" : ""}`} aria-current={!admin ? "page" : undefined} onClick={() => setMenuOpen(false)}><Icon name="grid" />My applications</Link>
+          <Link href="/" className={`nav-item ${!admin && !qrStudio ? "active" : ""}`} aria-current={!admin && !qrStudio ? "page" : undefined} onClick={() => setMenuOpen(false)}><Icon name="grid" />My applications</Link>
+          <Link href="/qr-studio" className={`nav-item ${qrStudio ? "active" : ""}`} aria-current={qrStudio ? "page" : undefined} onClick={() => setMenuOpen(false)}><Icon name="qr" />QR Studio</Link>
           {canAdmin && <><p className="nav-label admin-label">MANAGEMENT</p><Link href="/admin" className={`nav-item ${admin ? "active" : ""}`} aria-current={admin ? "page" : undefined} onClick={() => setMenuOpen(false)}><Icon name="users" />Administration</Link></>}
         </nav>
         <div className="sidebar-bottom"><div className="sidebar-note"><Icon name="layers" size={22} /><strong>One place. Your tools.</strong><p>Your department’s applications, together in AIDeck.</p></div>
@@ -29,7 +32,7 @@ export function WorkspaceShell({ member, canAdmin, children }: { member: Workspa
         </div>
       </div>
     </aside>
-    <div className="workspace-body"><header className="workspace-topbar"><div className="breadcrumb"><span>Workspace</span><Icon name="chevron" size={13} /><strong>{admin ? "Administration" : "My applications"}</strong></div><div className="topbar-actions"><span className="internal-label"><Icon name="lock" size={13} />Member access</span><ThemeToggle /><span className="avatar small" title={member.full_name}>{initials || "AI"}</span></div></header>
+    <div className="workspace-body"><header className="workspace-topbar"><div className="breadcrumb"><span>Workspace</span><Icon name="chevron" size={13} /><strong>{admin ? "Administration" : qrStudio ? "QR Studio" : "My applications"}</strong></div><div className="topbar-actions"><span className="internal-label"><Icon name="lock" size={13} />Member access</span><ThemeToggle /><span className="avatar small" title={member.full_name}>{initials || "AI"}</span></div></header>
       <main id="main-content" className="workspace-main">{children}</main>
       <footer className="workspace-footer"><span>AIDeck <span className="footer-dot">·</span> Grant Thornton AI Department</span><span>Built for your working day.</span></footer>
     </div>
