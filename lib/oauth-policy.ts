@@ -44,6 +44,7 @@ export function safePortalNext(value: string | null): string {
     || /%2f|%5c/i.test(value.split(/[?#]/, 1)[0])) return "/";
   try {
     const url = new URL(value, "https://portal.invalid");
-    return url.origin === "https://portal.invalid" ? `${url.pathname}${url.search}${url.hash}` : "/";
+    return url.origin === "https://portal.invalid" && !url.pathname.startsWith("//")
+      ? `${url.pathname}${url.search}${url.hash}` : "/";
   } catch { return "/"; }
 }

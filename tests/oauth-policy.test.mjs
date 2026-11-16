@@ -45,6 +45,7 @@ test("unsafe configured callback URLs fail closed", () => {
 });
 
 test("login continuation stays local after URL normalization", () => {
+  assert.equal(safePortalNext("/%2e%2e//evil.test"), "/");
   for (const value of [null, "", "https://evil.test", "//evil.test", "/\\evil.test", "/%5cevil.test", "/%2f%2fevil.test", "/\t/evil.test", "/\n/evil.test"]) {
     assert.equal(safePortalNext(value), "/", String(value));
   }
