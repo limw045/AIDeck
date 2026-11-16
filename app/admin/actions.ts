@@ -4,10 +4,11 @@ import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { inviteOrApprove, provisionAssignment, type GrantInput, type MemberInput } from "@/lib/provision";
 import { requireAdministrator } from "@/lib/portal";
+import { adminFeedbackUrl, type AdminSection } from "@/lib/admin-ui";
 
 function value(form: FormData, key: string) { return String(form.get(key) ?? "").trim(); }
-function back(message: string, error = false): never {
-  redirect(`/admin?${error ? "error" : "notice"}=${encodeURIComponent(message.slice(0, 240))}`);
+function back(message: string, error = false, section: AdminSection = "members", memberId?: string): never {
+  redirect(adminFeedbackUrl(message, error, section, memberId));
 }
 function inputFromForm(form: FormData, kind: "staff" | "client", apps: string[]): MemberInput {
   const selected = form.getAll("apps").map(String);
@@ -61,9 +62,9 @@ export async function inviteMember(form: FormData) {
     const result = await inviteOrApprove(input, member.user_id);
     failedApps = result.results.filter((item) => !item.ok).map((item) => item.app);
   } catch (error) {
-    back(error instanceof Error ? error.message : "Invitation failed.", true);
+    back(error instanceof Error ? error.message : "Invitation failed.", true, "invite");
   }
-  back(failedApps.length ? `Member saved. Provisioning failed for: ${failedApps.join(", ")}.` : "Member and applications are ready.", failedApps.length > 0);
+  back(failedApps.length ? `Member saved. Provisioning failed for: ${failedApps.join(", ")}.` : "Member and applications are ready.", failedApps.length > 0, "invite");
 }
 
 export async function approveExisting(form: FormData) {
@@ -106,23 +107,23 @@ export async function setVisibility(form: FormData) {
   const userId = value(form, "userId");
   const app = value(form, "app");
   const visible = value(form, "visible") === "true";
-  if (!apps.includes(app)) back("This application is outside your administrator scope.", true);
+  if (!apps.includes(app)) back("This application is outside your administrator scope.", true, "members", userId);
   const result = await db().query<{ kind: string }>("select kind from aideck.members where user_id=$1", [userId]);
-  if (app === "ticketing" && result.rows[0]?.kind === "staff" && !visible) back("GT staff always have a Ticketing entry.", true);
+  if (app === "ticketing" && result.rows[0]?.kind === "staff" && !visible) back("GT staff always have a Ticketing entry.", true, "members", userId);
   await db().query("update aideck.assignments set visible=$3,updated_at=now() where user_id=$1 and app_key=$2", [userId, app, visible]);
   await db().query("insert into aideck.audit_events(actor_id,target_id,app_key,action,outcome) values ($1,$2,$3,$4,'ok')",
     [member.user_id, userId, app, visible ? "restore_entry" : "hide_entry"]);
-  back(visible ? "Entry restored." : "Entry hidden. Direct site access remains available.");
+  back(visible ? "Entry restored." : "Entry hidden. Direct site access remains available.", false, "members", userId);
 }
 
 export async function retryProvision(form: FormData) {
   const { apps } = await requireAdministrator();
   const userId = value(form, "userId");
   const app = value(form, "app");
-  if (!apps.includes(app)) back("This application is outside your administrator scope.", true);
+  if (!apps.includes(app)) back("This application is outside your administrator scope.", true, "members", userId);
   try { await provisionAssignment(userId, app); }
-  catch (error) { back(error instanceof Error ? error.message : "Provisioning failed.", true); }
-  back("Provisioning completed.");
+  catch (error) { back(error instanceof Error ? error.message : "Provisioning failed.", true, "members", userId); }
+  back("Provisioning completed.", false, "members", userId);
 }
 
 export async function assignApplication(form: FormData) {
@@ -130,23 +131,23 @@ export async function assignApplication(form: FormData) {
   const userId = value(form, "userId");
   const app = value(form, "app");
   if (!apps.includes(app) || !["signora", "ticketing", "riskscreen"].includes(app)) {
-    back("This application is outside your administrator scope.", true);
+    back("This application is outside your administrator scope.", true, "members", userId);
   }
-  if (app === "riskscreen" && !member.is_superadmin) back("Only a Super administrator can assign RiskScreen.", true);
+  if (app === "riskscreen" && !member.is_superadmin) back("Only a Super administrator can assign RiskScreen.", true, "members", userId);
   const target = await db().query<{ kind: string; ticketing_department_id: string | null }>(
     "select kind,ticketing_department_id from aideck.members where user_id=$1", [userId],
   );
-  if (!target.rows[0]) back("Member not found.", true);
-  if (!member.is_superadmin && target.rows[0].kind !== "staff") back("Site administrators can assign only GT staff.", true);
+  if (!target.rows[0]) back("Member not found.", true, "members", userId);
+  if (!member.is_superadmin && target.rows[0].kind !== "staff") back("Site administrators can assign only GT staff.", true, "members", userId);
   if (app === "ticketing" && (!target.rows[0].ticketing_department_id || target.rows[0].kind !== "staff")) {
-    back("A GT staff member with a Ticketing department is required.", true);
+    back("A GT staff member with a Ticketing department is required.", true, "members", userId);
   }
   const role = app === "signora" ? value(form, "role") : app === "ticketing" ? "employee" : null;
   const organizationId = app === "signora" ? value(form, "organizationId") : null;
   if (app === "signora") {
-    if (!organizationId || !["junior", "senior"].includes(role ?? "")) back("Choose an ordinary Signora role and Organization.", true);
+    if (!organizationId || !["junior", "senior"].includes(role ?? "")) back("Choose an ordinary Signora role and Organization.", true, "members", userId);
     const organization = await db().query("select 1 from signora.organizations where id=$1", [organizationId]);
-    if (!organization.rowCount) back("The Signora Organization does not exist.", true);
+    if (!organization.rowCount) back("The Signora Organization does not exist.", true, "members", userId);
   }
   await db().query(
     `insert into aideck.assignments(user_id,app_key,site_role,organization_id,visible,provision_status)
@@ -161,9 +162,9 @@ export async function assignApplication(form: FormData) {
     await db().query("insert into aideck.audit_events(actor_id,target_id,app_key,action,outcome) values($1,$2,$3,'assign_application','ok')",
       [member.user_id, userId, app]);
   } catch (error) {
-    back(error instanceof Error ? error.message : "Provisioning failed.", true);
+    back(error instanceof Error ? error.message : "Provisioning failed.", true, "members", userId);
   }
-  back("Application assigned.");
+  back("Application assigned.", false, "members", userId);
 }
 
 export async function setOrdinarySignoraRole(form: FormData) {
@@ -171,7 +172,7 @@ export async function setOrdinarySignoraRole(form: FormData) {
   if (!apps.includes("signora")) back("Signora is outside your administrator scope.", true);
   const userId = value(form, "userId");
   const role = value(form, "role");
-  if (!["junior", "senior"].includes(role)) back("Only ordinary Signora roles can be selected here.", true);
+  if (!["junior", "senior"].includes(role)) back("Only ordinary Signora roles can be selected here.", true, "members", userId);
   const client = await db().connect();
   try {
     await client.query("begin");
@@ -190,9 +191,9 @@ export async function setOrdinarySignoraRole(form: FormData) {
     await client.query("commit");
   } catch (error) {
     await client.query("rollback");
-    back(error instanceof Error ? error.message : "Role change failed.", true);
+    back(error instanceof Error ? error.message : "Role change failed.", true, "members", userId);
   } finally { client.release(); }
-  back("Signora role updated.");
+  back("Signora role updated.", false, "members", userId);
 }
 
 export async function setSiteAdministrator(form: FormData) {
@@ -201,7 +202,7 @@ export async function setSiteAdministrator(form: FormData) {
   const userId = value(form, "userId");
   const app = value(form, "app");
   const grant = value(form, "grant") === "true";
-  if (app !== "signora" && app !== "ticketing") back("Only connected websites can have site administrators.", true);
+  if (app !== "signora" && app !== "ticketing") back("Only connected websites can have site administrators.", true, "members", userId);
   const client = await db().connect();
   try {
     await client.query("begin");
@@ -244,43 +245,43 @@ export async function setSiteAdministrator(form: FormData) {
     await client.query("commit");
   } catch (error) {
     await client.query("rollback");
-    back(error instanceof Error ? error.message : "Role change failed.", true);
+    back(error instanceof Error ? error.message : "Role change failed.", true, "members", userId);
   } finally { client.release(); }
-  back(grant ? "Site administrator granted." : "Site administrator revoked.");
+  back(grant ? "Site administrator granted." : "Site administrator revoked.", false, "members", userId);
 }
 
 export async function addUpcomingApplication(form: FormData) {
   const { member } = await requireAdministrator();
-  if (!member.is_superadmin) back("Only a Super administrator can add applications.", true);
+  if (!member.is_superadmin) back("Only a Super administrator can add applications.", true, "catalog");
   const key = value(form, "key").toLowerCase();
   const name = value(form, "name");
   const rawUrl = value(form, "url");
-  if (!/^[a-z][a-z0-9-]{2,40}$/.test(key) || !name || name.length > 80) back("Use a short key and name.", true);
+  if (!/^[a-z][a-z0-9-]{2,40}$/.test(key) || !name || name.length > 80) back("Use a short key and name.", true, "catalog");
   let url: URL;
-  try { url = new URL(rawUrl); } catch { back("Enter a valid URL.", true); }
-  if (url.protocol !== "https:") back("Use an HTTPS URL.", true);
+  try { url = new URL(rawUrl); } catch { back("Enter a valid URL.", true, "catalog"); }
+  if (url.protocol !== "https:") back("Use an HTTPS URL.", true, "catalog");
   const result = await db().query(
     "insert into aideck.applications(key,name,description,kind,url,enabled,sort_order) values ($1,$2,$3,'upcoming',$4,false,100) on conflict (key) do nothing returning key",
     [key, name, value(form, "description"), url.toString()],
   );
-  if (!result.rowCount) back("That application key already exists.", true);
-  back("Upcoming application saved as unpublished. Connect its login and provisioning before launch.");
+  if (!result.rowCount) back("That application key already exists.", true, "catalog");
+  back("Upcoming application saved as unpublished. Connect its login and provisioning before launch.", false, "catalog");
 }
 
 export async function updateUpcomingApplication(form: FormData) {
   const { member } = await requireAdministrator();
-  if (!member.is_superadmin) back("Only a Super administrator can edit applications.", true);
+  if (!member.is_superadmin) back("Only a Super administrator can edit applications.", true, "catalog");
   const key = value(form, "key");
   const name = value(form, "name");
   const rawUrl = value(form, "url");
-  if (!name || name.length > 80) back("Enter a name up to 80 characters.", true);
+  if (!name || name.length > 80) back("Enter a name up to 80 characters.", true, "catalog");
   let url: URL;
-  try { url = new URL(rawUrl); } catch { back("Enter a valid URL.", true); }
-  if (url.protocol !== "https:") back("Use an HTTPS URL.", true);
+  try { url = new URL(rawUrl); } catch { back("Enter a valid URL.", true, "catalog"); }
+  if (url.protocol !== "https:") back("Use an HTTPS URL.", true, "catalog");
   const result = await db().query(
     "update aideck.applications set name=$2,description=$3,url=$4 where key=$1 and kind='upcoming' returning key",
     [key, name, value(form, "description"), url.toString()],
   );
-  if (!result.rowCount) back("Only Upcoming applications can be edited here.", true);
-  back("Upcoming application updated.");
+  if (!result.rowCount) back("Only Upcoming applications can be edited here.", true, "catalog");
+  back("Upcoming application updated.", false, "catalog");
 }
