@@ -16,8 +16,9 @@ export async function launchApplication(form: FormData) {
   const app = String(form.get("app") ?? "");
   if (app !== "signora" && app !== "ticketing") throw new Error("This application is not connected yet.");
   const grant = await db().query(
-    `select 1 from aideck.assignments where user_id=$1 and app_key=$2
-     and visible and provision_status='ready'`, [member.user_id, app],
+    `select 1 from aideck.assignments g join aideck.applications a on a.key=g.app_key
+     where g.user_id=$1 and g.app_key=$2 and a.enabled
+     and g.visible and g.provision_status='ready'`, [member.user_id, app],
   );
   if (!grant.rowCount) throw new Error("This application is not assigned to you.");
   const origin = app === "signora" ? process.env.SIGNORA_URL : process.env.TICKETING_URL;

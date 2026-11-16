@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import { Icon } from "@/app/components/symbols";
+import { safePortalNext } from "@/lib/oauth-policy";
 
 export default function LoginForm() {
   const [error, setError] = useState("");
@@ -13,7 +14,7 @@ export default function LoginForm() {
       const { error } = await supabaseBrowser().auth.signInWithPassword({ email: String(data.get("email") ?? "").trim(), password: String(data.get("password") ?? "") });
       if (error) { setError(error.message); setBusy(false); return; }
       const next = new URLSearchParams(window.location.search).get("next");
-      window.location.replace(next?.startsWith("/") && !next.startsWith("//") ? next : "/");
+      window.location.replace(safePortalNext(next));
     } catch { setError("Unable to sign in. Check your connection and try again."); setBusy(false); }
   }
   return <form className="stack auth-form" action={signIn} aria-busy={busy}>

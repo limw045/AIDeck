@@ -8,6 +8,7 @@ node_modules/
 *.tsbuildinfo
 .agent-checkpoint.tmp
 docs/
+**/*superpower*/
 db/
 tests/
 README.md
