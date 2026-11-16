@@ -164,8 +164,8 @@ export async function provisionAssignment(userId: string, app: string) {
       actualRole = profile.rows[0].role;
     } else if (app === "signora") {
       const profile = await client.query<{ role: string; disabled_at: Date | null; organization_id: string | null }>(
-        `select role::text,"disabledAt" as disabled_at,"organizationId" as organization_id
-         from signora."User" where id=$1`, [userId],
+        `select role::text,disabled_at,organization_id
+         from signora.users where id=$1`, [userId],
       );
       if (profile.rows[0]) {
         if (profile.rows[0].disabled_at || (profile.rows[0].role !== "superadmin" && !profile.rows[0].organization_id)) {
@@ -176,10 +176,10 @@ export async function provisionAssignment(userId: string, app: string) {
         if (!grant.organization_id || !["junior", "senior"].includes(grant.site_role ?? "")) {
           throw new Error("A Signora Organization and ordinary role are required.");
         }
-        const organization = await client.query("select id from signora.\"Organization\" where id=$1", [grant.organization_id]);
+        const organization = await client.query("select id from signora.organizations where id=$1", [grant.organization_id]);
         if (!organization.rowCount) throw new Error("The selected Signora Organization does not exist.");
         await client.query(
-          `insert into signora."User" (id,email,name,role,"organizationId","sessionVersion","createdAt","updatedAt")
+          `insert into signora.users (id,email,name,role,organization_id,session_version,created_at,updated_at)
            values ($1,$2,$3,$4::signora."UserRole",$5,0,now(),now())`,
           [userId, member.email, member.full_name, grant.site_role, grant.organization_id],
         );

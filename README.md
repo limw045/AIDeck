@@ -95,10 +95,11 @@ clears only that site's session, so deliberate portal entry can sign in again.
 Assignment removal blocks the next authorization or renewal; it is not an
 instant cross-site browser-cookie deletion mechanism.
 
-Before onboarding new Signora users, reconcile AI Deck's existing provisioning
-queries for legacy `User`/`Organization` tables with Signora's current
-`users`/`organizations` schema. Existing-account SSO tests do not establish
-compatibility of that provisioning path. Session Track remains Upcoming.
+Admin and provisioning queries use Signora's current `users`/`organizations`
+tables and snake_case columns. Set `AIDECK_TEST_DATABASE_URL` when running
+`npm test` to validate these queries against a configured database using
+`EXPLAIN` in a read-only transaction. This check does not create accounts or
+change roles. Session Track remains Upcoming.
 
 For future Windows Server hosting, use a supported Linux runtime (for example a
 Linux VM), pin production Supabase versions and expose its API gateway through

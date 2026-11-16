@@ -15,14 +15,14 @@ export default async function ReviewExisting({ params, searchParams }: {
   const { source, id } = await params;
   if (source !== "signora" && source !== "ticketing") return <div className="panel">Unknown source.</div>;
   const result = source === "signora"
-    ? await db().query<SiteUser>(`select id,email,name,role::text,"organizationId" as organization_id from signora."User" where id=$1`, [id])
+    ? await db().query<SiteUser>(`select id,email,name,role::text,organization_id from signora.users where id=$1`, [id])
     : await db().query<SiteUser>(`select id,email,display_name as name,role,null::text as organization_id from gtjbticketing.profiles where id=$1`, [id]);
   const user = result.rows[0];
   if (!user) return <div className="panel">User not found.</div>;
   const { error } = await searchParams;
   const [departments, organizations, ticketingProfile] = await Promise.all([
     db().query<{ id: string; name: string }>("select id,name from gtjbticketing.departments where is_active and not is_system order by name"),
-    db().query<{ id: string; name: string }>("select id,name from signora.\"Organization\" order by name"),
+    db().query<{ id: string; name: string }>("select id,name from signora.organizations order by name"),
     db().query<{ department_id: string | null }>("select department_id from gtjbticketing.profiles where id=$1", [id]),
   ]);
   return <div className="admin-content"><header><h1>Approve existing user</h1><Link href="/admin">Back to administration</Link></header>

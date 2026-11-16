@@ -25,11 +25,11 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
         coalesce(case when a.app_key='signora' then s.role::text
                       when a.app_key='ticketing' then t.role end,a.site_role) as site_role
        from aideck.assignments a
-       left join signora."User" s on s.id=a.user_id and a.app_key='signora'
+       left join signora.users s on s.id=a.user_id and a.app_key='signora'
        left join gtjbticketing.profiles t on t.id=a.user_id and a.app_key='ticketing'
        where a.user_id=any($1::uuid[]) order by a.app_key`, [members.map((row) => row.user_id)]),
     db().query<Department>("select id,name from gtjbticketing.departments where is_active and not is_system order by name"),
-    db().query<Organization>("select id,name from signora.\"Organization\" order by name"),
+    db().query<Organization>("select id,name from signora.organizations order by name"),
     db().query<{ action: string; created_at: Date; app_key: string | null; outcome: string }>(
       member.is_superadmin
         ? "select action,created_at,app_key,outcome from aideck.audit_events order by id desc limit 20"
@@ -44,8 +44,8 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
   if (member.is_superadmin) {
     const [signora, ticketing, applications] = await Promise.all([
       db().query<Existing>(`select s.id,s.email,s.name,s.role::text,'signora'::text as source
-        from signora."User" s left join aideck.members m on m.user_id=s.id
-        where m.user_id is null order by s."createdAt" desc limit 30`),
+        from signora.users s left join aideck.members m on m.user_id=s.id
+        where m.user_id is null order by s.created_at desc limit 30`),
       db().query<Existing>(`select t.id,t.email,t.display_name as name,t.role,'ticketing'::text as source
         from gtjbticketing.profiles t left join aideck.members m on m.user_id=t.id
         where m.user_id is null order by t.created_at desc limit 30`),

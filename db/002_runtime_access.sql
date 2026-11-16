@@ -13,8 +13,8 @@ grant select, insert on aideck.audit_events to aideck_runtime;
 grant usage on sequence aideck.audit_events_id_seq to aideck_runtime;
 
 grant select, insert on public.profiles to aideck_runtime;
-grant select on signora."Organization" to aideck_runtime;
-grant select, insert, update on signora."User" to aideck_runtime;
+grant select on signora.organizations to aideck_runtime;
+grant select, insert, update on signora.users to aideck_runtime;
 grant select on gtjbticketing.departments to aideck_runtime;
 grant select, insert, update on gtjbticketing.profiles to aideck_runtime;
 
@@ -29,9 +29,9 @@ create policy aideck_runtime_access on aideck.audit_events
 
 create policy aideck_runtime_access on public.profiles
   for all to aideck_runtime using (true) with check (true);
-create policy aideck_runtime_read on signora."Organization"
+create policy aideck_runtime_read on signora.organizations
   for select to aideck_runtime using (true);
-create policy aideck_runtime_access on signora."User"
+create policy aideck_runtime_access on signora.users
   for all to aideck_runtime using (true) with check (true);
 create policy aideck_runtime_read on gtjbticketing.departments
   for select to aideck_runtime using (true);

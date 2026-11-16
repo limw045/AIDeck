@@ -77,7 +77,7 @@ export async function approveExisting(form: FormData) {
     const input = inputFromForm(form, value(form, "kind") === "client" ? "client" : "staff", apps);
     if (source === "signora") {
       const site = await db().query<{ role: string; organization_id: string | null }>(
-        `select role::text,"organizationId" as organization_id from signora."User" where id=$1`, [userId],
+        `select role::text,organization_id from signora.users where id=$1`, [userId],
       );
       if (!site.rows[0]) throw new Error("The Signora user no longer exists.");
       if (input.grants.some((grant) => grant.app === "signora")) {
@@ -145,7 +145,7 @@ export async function assignApplication(form: FormData) {
   const organizationId = app === "signora" ? value(form, "organizationId") : null;
   if (app === "signora") {
     if (!organizationId || !["junior", "senior"].includes(role ?? "")) back("Choose an ordinary Signora role and Organization.", true);
-    const organization = await db().query("select 1 from signora.\"Organization\" where id=$1", [organizationId]);
+    const organization = await db().query("select 1 from signora.organizations where id=$1", [organizationId]);
     if (!organization.rowCount) back("The Signora Organization does not exist.", true);
   }
   await db().query(
@@ -180,7 +180,7 @@ export async function setOrdinarySignoraRole(form: FormData) {
     );
     if (!assignment.rows[0] || assignment.rows[0].can_manage) throw new Error("Revoke site administrator access before changing this role.");
     const changed = await client.query(
-      `update signora."User" set role=$2::signora."UserRole","sessionVersion"="sessionVersion"+1,"updatedAt"=now()
+      `update signora.users set role=$2::signora."UserRole",session_version=session_version+1,updated_at=now()
        where id=$1 and role in ('junior','senior') returning id`, [userId, role],
     );
     if (!changed.rowCount) throw new Error("The site profile is missing or has a protected role.");
@@ -211,28 +211,28 @@ export async function setSiteAdministrator(form: FormData) {
     if (!assignment.rowCount) throw new Error("Assign this website before changing its administrator role.");
     if (app === "signora" && !grant) {
       const preview = await client.query<{ organization_id: string | null }>(
-        `select "organizationId" as organization_id from signora."User" where id=$1`, [userId],
+        `select organization_id from signora.users where id=$1`, [userId],
       );
       if (preview.rows[0]?.organization_id) {
         await client.query("select pg_advisory_xact_lock(hashtextextended($1,0))", [preview.rows[0].organization_id]);
       }
       const site = await client.query<{ role: string; organization_id: string | null; disabled_at: Date | null }>(
-        `select role::text,"organizationId" as organization_id,"disabledAt" as disabled_at
-         from signora."User" where id=$1 for update`, [userId],
+        `select role::text,organization_id,disabled_at
+         from signora.users where id=$1 for update`, [userId],
       );
       const current = site.rows[0];
       if (current?.organization_id !== preview.rows[0]?.organization_id) throw new Error("The Signora Organization changed. Reload and retry.");
       if (current?.role === "admin" && current.organization_id && !current.disabled_at) {
         const others = await client.query(
-          `select 1 from signora."User" where "organizationId"=$1 and id<>$2
-           and role='admin' and "disabledAt" is null limit 1`, [current.organization_id, userId],
+          `select 1 from signora.users where organization_id=$1 and id<>$2
+           and role='admin' and disabled_at is null limit 1`, [current.organization_id, userId],
         );
         if (!others.rowCount) throw new Error("Assign another active Signora administrator to this Organization first.");
       }
     }
     const nextRole = grant ? "admin" : app === "signora" ? "junior" : "employee";
     const changed = app === "signora"
-      ? await client.query("update signora.\"User\" set role=$2::signora.\"UserRole\",\"sessionVersion\"=\"sessionVersion\"+1,\"updatedAt\"=now() where id=$1 and role<>'superadmin' and (not $3 or (\"disabledAt\" is null and \"organizationId\" is not null)) returning id", [userId, nextRole, grant])
+      ? await client.query("update signora.users set role=$2::signora.\"UserRole\",session_version=session_version+1,updated_at=now() where id=$1 and role<>'superadmin' and (not $3 or (disabled_at is null and organization_id is not null)) returning id", [userId, nextRole, grant])
       : await client.query("update gtjbticketing.profiles set role=$2,updated_at=now() where id=$1 and role<>'super_admin' and (not $3 or (account_status='active' and deleted_at is null)) returning id", [userId, nextRole, grant]);
     if (!changed.rowCount) throw new Error("The site profile is missing or has a protected role.");
     await client.query(
