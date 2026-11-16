@@ -1,0 +1,17 @@
+.env
+.env.*
+.git/
+.vercel/
+.next/
+.next-*/
+node_modules/
+*.tsbuildinfo
+.agent-checkpoint.tmp
+docs/
+db/
+tests/
+README.md
+AGENTS.md
+CLAUDE.md
+*.log
+*.tmp

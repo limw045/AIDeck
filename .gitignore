@@ -3,9 +3,10 @@
 .env.*
 !.env.example
 
-# Generated Markdown notes and plans; only the root README is tracked
+# Keep local notes and superpowers files out of version control
 *.md
 !/README.md
+**/*superpower*/
 
 # Operating systems and editors
 .DS_Store
@@ -22,6 +23,11 @@ Thumbs.db
 
 # Common dependency and build directories
 node_modules/
+.vercel/
+.next/
+.next-*/
+*.tsbuildinfo
+db/.bootstrap-*.local.sql
 dist/
 build/
 .venv/
