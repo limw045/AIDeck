@@ -85,7 +85,7 @@ export async function visibleApplications(member: Member): Promise<ApplicationCa
   return [...rows.rows, {
     key: "qrstudio",
     name: "QR Studio",
-    description: "Create custom QR codes with templates, logos and colors. Export PNG or SVG directly from your browser.",
+    description: "Generate QR codes. Export PNG or SVG.",
     kind: "web",
     url: "/qr-studio",
   }];

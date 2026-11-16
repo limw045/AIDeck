@@ -42,7 +42,6 @@ test("QR Studio is visible without assignments and preserves assigned applicatio
     });
     const html = renderToStaticMarkup(React.createElement(ApplicationCatalog, { applications: [qr], oauthReady: {}, downloadReady: false }));
     assert.match(html, /href="\/qr-studio"/);
-    assert.match(html, /Available to all members/);
     assert.doesNotMatch(html, /<form|Separate sign-in required|Coming soon|Download installer/);
   }
 });

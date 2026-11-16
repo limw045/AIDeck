@@ -11,11 +11,7 @@ import SubmitButton from "./submit-button";
 type Option = { id: string; name: string };
 type ExistingMember = { id: string; email: string; name: string | null; role: string; source: "signora" | "ticketing"; organization_id: string | null; department_id: string | null };
 
-const applicationDetails: Record<string, { icon: IconName; description: string }> = {
-  ticketing: { icon: "ticket", description: "Department support desk" },
-  signora: { icon: "pen", description: "Document signing" },
-  riskscreen: { icon: "shield", description: "Windows installer download" },
-};
+const applicationIcons: Record<string, IconName> = { ticketing: "ticket", signora: "pen", riskscreen: "shield" };
 
 export default function MemberForm({ departments, organizations, apps, allowClient, existing }: {
   departments: Option[]; organizations: Option[]; apps: string[]; allowClient: boolean; existing?: ExistingMember;
@@ -32,24 +28,24 @@ export default function MemberForm({ departments, organizations, apps, allowClie
     <div className="admin-form-columns">
       <div>
         <section className="admin-card" aria-labelledby="member-details-heading">
-          <div className="admin-card-heading"><h3 id="member-details-heading">Member details</h3><p>{existing ? "Confirm this account’s central workspace details." : "Use the member’s work email and their full name."}</p></div>
+          <div className="admin-card-heading"><h3 id="member-details-heading">Member details</h3></div>
           <div className="admin-form-grid">
             <label className="admin-field admin-field-wide">Work email<input name="email" type="email" placeholder="name@company.com" autoComplete="email" defaultValue={existing?.email} readOnly={Boolean(existing)} required /></label>
             <label className="admin-field admin-field-wide">Full name<input name="fullName" placeholder="Full name" autoComplete="name" defaultValue={existing?.name ?? ""} maxLength={120} required /></label>
             <MemberDepartmentFields departments={departments} allowClient={allowClient} kind={kind} onKindChange={setKind} ticketingSelected={ticketing} defaultTicketingDepartmentId={existing?.department_id ?? ""} />
           </div>
         </section>
-        <p className="admin-context-note"><Icon name={existing ? "shield" : "mail"} size={17} /><span>{existing ? "Existing website accounts and roles are retained. Approval adds central workspace membership." : "New members receive a setup email. Existing accounts keep their sign-in details."}</span></p>
+        <p className="admin-context-note"><Icon name={existing ? "shield" : "mail"} size={17} /><span>{existing ? "Verify the name and email. Existing accounts and roles are retained." : "New members receive a setup email. Existing accounts keep their sign-in details."}</span></p>
       </div>
       <aside>
-        <fieldset className="admin-card admin-access-card"><legend>Application access</legend><p>Select the applications this member can open.</p>
+        <fieldset className="admin-card admin-access-card"><legend>Application access</legend>
           {available.map((app) => {
             const automatic = app === "ticketing" && automaticTicketing;
             return <div className="admin-access-option" key={app}>
               <label className="admin-app-choice">
                 <input type="checkbox" name="apps" value={app} disabled={automatic} checked={app === "signora" ? signora : app === "ticketing" ? automatic || ticketing : undefined} onChange={app === "signora" ? (event) => setSignora(event.target.checked) : app === "ticketing" ? (event) => setTicketing(event.target.checked) : undefined} />
-                <span className="admin-app-icon"><Icon name={applicationDetails[app].icon} size={18} /></span>
-                <span className="admin-choice-copy"><strong>{applicationNames[app]}</strong><small>{applicationDetails[app].description}</small></span>
+                <span className="admin-app-icon"><Icon name={applicationIcons[app]} size={18} /></span>
+                <span className="admin-choice-copy"><strong>{applicationNames[app]}</strong></span>
                 {automatic && <span className="admin-mini-tag">Automatic</span>}
               </label>
               {app === "signora" && signora && <div className="admin-access-fields">
@@ -64,9 +60,6 @@ export default function MemberForm({ departments, organizations, apps, allowClie
           })}
           {available.length === 0 && <p>No applications are available in your administrator scope.</p>}
         </fieldset>
-        <div className="admin-invitation-guide"><p className="admin-eyebrow">{existing ? "BEFORE APPROVING" : "HOW INVITATIONS WORK"}</p>
-          {(existing ? [["Check their identity", "Verify the existing account’s name and email."], ["Complete their details", "Choose a member type and department."], ["Approve workspace access", "Their existing website role is retained."]] : [["Add member details", "Choose their type and department."], ["Choose application access", "Assign only the tools they need."], ["Send the invitation", "They complete their account by email."]]).map(([title, detail], index) => <div className="admin-guide-step" key={title}><span>{index + 1}</span><p><strong>{title}</strong>{detail}</p></div>)}
-        </div>
       </aside>
     </div>
     <div className="admin-form-footer"><Link className="button secondary" href={existing ? "/admin?section=existing" : "/admin?section=members"}>Cancel</Link><SubmitButton pendingLabel={existing ? "Approving…" : "Sending invitation…"}><Icon name={existing ? "check" : "mail"} size={16} />{existing ? "Approve for workspace" : "Invite or add member"}</SubmitButton></div>

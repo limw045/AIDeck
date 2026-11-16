@@ -22,6 +22,6 @@ export default function PasswordForm() {
     <label>New password<input type="password" name="password" autoComplete="new-password" placeholder="At least 8 characters" minLength={8} required /></label>
     <label>Confirm password<input type="password" name="confirmPassword" autoComplete="new-password" placeholder="Enter your password again" minLength={8} required /></label>
     {error && <p className="error" role="alert">{error}</p>}
-    <button className="button auth-submit" disabled={busy}>{busy ? "Saving…" : "Continue to your workspace"}</button>
+    <button className="button auth-submit" disabled={busy}>{busy ? "Saving…" : "Save password"}</button>
   </form>;
 }

@@ -28,7 +28,7 @@ export default async function ReviewExisting({ params, searchParams }: {
   ]);
   return <div className="admin-content admin-review-page">
     <Link className="admin-back" href="/admin?section=existing"><Icon name="arrow" size={15} />Back to existing users</Link>
-    <header className="admin-heading"><div><h1>Review existing user</h1><p>Complete their details and approve workspace access.</p></div><span className="admin-scope"><Icon name="shield" size={14} />Super administrator</span></header>
+    <header className="admin-heading"><div><h1>Review existing user</h1></div><span className="admin-scope"><Icon name="shield" size={14} />Super administrator</span></header>
     <div className="admin-review-identity"><span className="admin-app-icon"><Icon name={source === "signora" ? "pen" : "ticket"} size={21} /></span><div><strong>{applicationNames[source]} account</strong><p>{user.email} · {readableLabel(user.role)}</p></div><span className="admin-badge admin-state-pending">Awaiting approval</span></div>
     {typeof error === "string" && <p className="error admin-feedback" role="alert"><Icon name="help" size={17} />{error}</p>}
     <MemberForm departments={departments.rows} organizations={organizations.rows} apps={["signora", "ticketing", "riskscreen"]} allowClient existing={{ ...user, source, department_id: ticketingProfile.rows[0]?.department_id ?? null }} />
