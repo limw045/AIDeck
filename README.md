@@ -170,9 +170,9 @@ Examples: `feat/slide-export`, `fix/empty-deck-export`, `docs/update-setup`.
 ## Status
 
 The portal is deployed to Vercel Production at
-https://aideck-portal.vercel.app. The deployment was uploaded directly from
-this local working tree; the Vercel project is not connected to the GitHub
-repository, so future source changes require another deployment.
+https://aideck-portal.vercel.app. The Vercel project is connected to
+`limw045/AIDeck` on GitHub. Pushes to the production branch, `main`, trigger
+automatic builds and deployments.
 
 Production uses the existing remote Supabase project and its PostgreSQL pooler,
 not a database on the development machine. The portal's production origin is
