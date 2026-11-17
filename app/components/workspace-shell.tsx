@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState, type ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import { signOutEverywhere } from "@/app/actions";
 import { Brand } from "./brand";
 import { Icon } from "./symbols";
@@ -14,11 +14,17 @@ export function WorkspaceShell({ member, canAdmin, children }: { member: Workspa
   const admin = pathname.startsWith("/admin");
   const qrStudio = pathname.startsWith("/qr-studio");
   const [menuOpen, setMenuOpen] = useState(false);
+  const menuButton = useRef<HTMLButtonElement>(null);
   const initials = member.full_name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join("").toUpperCase();
   return <div className="workspace">
     <a className="skip-link" href="#main-content">Skip to content</a>
-    <aside className="workspace-sidebar">
-      <div className="sidebar-brand"><Brand /><button className="icon-button mobile-menu" type="button" aria-label="Toggle navigation" aria-expanded={menuOpen} aria-controls="workspace-navigation" onClick={() => setMenuOpen(!menuOpen)}><Icon name={menuOpen ? "close" : "menu"} /></button></div>
+    <aside className="workspace-sidebar" onKeyDown={(event) => {
+      if (event.key === "Escape" && menuOpen) {
+        setMenuOpen(false);
+        menuButton.current?.focus();
+      }
+    }}>
+      <div className="sidebar-brand"><Brand /><button ref={menuButton} className="icon-button mobile-menu" type="button" aria-label={menuOpen ? "Close navigation" : "Open navigation"} aria-expanded={menuOpen} aria-controls="workspace-navigation" onClick={() => setMenuOpen(!menuOpen)}><Icon name={menuOpen ? "close" : "menu"} /></button></div>
       <div id="workspace-navigation" className={`sidebar-body ${menuOpen ? "is-open" : ""}`}>
         <nav className="sidebar-nav" aria-label="Main navigation">
           <Link href="/" className={`nav-item ${!admin && !qrStudio ? "active" : ""}`} aria-current={!admin && !qrStudio ? "page" : undefined} onClick={() => setMenuOpen(false)}><Icon name="grid" />My applications</Link>

@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { adminSection, adminFeedbackUrl, filterAdminMembers } from "../lib/admin-ui.ts";
+import { adminSection, adminFeedbackUrl, adminMemberFilters, adminMemberUrl, filterAdminMembers, isUuid } from "../lib/admin-ui.ts";
 
 test("Admin sections default safely and respect super administrator scope", () => {
   assert.equal(adminSection(undefined, true), "invite");
@@ -39,4 +39,33 @@ test("member feedback retains its target on success and failure without affectin
     assert.equal(url.searchParams.get(error ? "error" : "notice"), "Updated");
   }
   assert.equal(new URL(adminFeedbackUrl("Invited", false, "invite", "member-id"), "https://portal.test").searchParams.has("member"), false);
+});
+
+test("member detail and return links preserve only valid filters", () => {
+  const detail = new URL(adminMemberUrl("  a & b  ", "active", "user & id"), "https://portal.test");
+  assert.equal(detail.pathname, "/admin");
+  assert.equal(detail.searchParams.get("section"), "members");
+  assert.equal(detail.searchParams.get("member"), "user & id");
+  assert.equal(detail.searchParams.get("q"), "a & b");
+  assert.equal(detail.searchParams.get("status"), "active");
+  assert.equal(adminMemberUrl(["bad"], "invalid"), "/admin?section=members");
+  assert.deepEqual(adminMemberFilters("x".repeat(130), "all"), { q: "x".repeat(120), status: "all" });
+});
+
+test("member action feedback safely retains valid filters and target", () => {
+  const url = new URL(adminFeedbackUrl("Updated", true, "members", "user-id", { q: "name & email", status: "suspended" }), "https://portal.test");
+  assert.equal(url.searchParams.get("member"), "user-id");
+  assert.equal(url.searchParams.get("q"), "name & email");
+  assert.equal(url.searchParams.get("status"), "suspended");
+  const invalid = new URL(adminFeedbackUrl("Updated", true, "members", "user-id", { q: ["bad"], status: "external" }), "https://portal.test");
+  assert.equal(invalid.searchParams.has("q"), false);
+  assert.equal(invalid.searchParams.has("status"), false);
+});
+
+test("review route UUID guard accepts canonical UUIDs only", () => {
+  assert.equal(isUuid("550e8400-e29b-41d4-a716-446655440000"), true);
+  assert.equal(isUuid("550E8400-E29B-41D4-A716-446655440000"), true);
+  for (const value of ["not-a-uuid", "550e8400-e29b-41d4-a716-44665544000z", ["550e8400-e29b-41d4-a716-446655440000"], ""]) {
+    assert.equal(isUuid(value), false);
+  }
 });

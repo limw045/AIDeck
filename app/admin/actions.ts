@@ -4,11 +4,14 @@ import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { inviteOrApprove, provisionAssignment, type GrantInput, type MemberInput } from "@/lib/provision";
 import { requireAdministrator } from "@/lib/portal";
-import { adminFeedbackUrl, type AdminSection } from "@/lib/admin-ui";
+import { adminFeedbackUrl, adminMemberFilters, adminExistingReviewUrl, type AdminMemberFilters, type AdminSection } from "@/lib/admin-ui";
 
 function value(form: FormData, key: string) { return String(form.get(key) ?? "").trim(); }
-function back(message: string, error = false, section: AdminSection = "members", memberId?: string): never {
-  redirect(adminFeedbackUrl(message, error, section, memberId));
+function back(message: string, error = false, section: AdminSection = "members", memberId?: string, filters?: AdminMemberFilters): never {
+  redirect(adminFeedbackUrl(message, error, section, memberId, filters));
+}
+function backMember(form: FormData, message: string, error = false, memberId?: string): never {
+  return back(message, error, "members", memberId, adminMemberFilters(form.get("q"), form.get("status")));
 }
 function inputFromForm(form: FormData, kind: "staff" | "client", apps: string[]): MemberInput {
   const selected = form.getAll("apps").map(String);
@@ -72,6 +75,7 @@ export async function approveExisting(form: FormData) {
   if (!member.is_superadmin) back("Only a Super administrator can approve existing users.", true);
   const userId = value(form, "userId");
   const source = value(form, "source");
+  const filters = adminMemberFilters(form.get("q"), form.get("status"));
   let failed = false;
   try {
     if (source !== "signora" && source !== "ticketing") throw new Error("Unknown source application.");
@@ -95,11 +99,11 @@ export async function approveExisting(form: FormData) {
   } catch (error) {
     const message = error instanceof Error ? error.message : "Approval failed.";
     if (source === "signora" || source === "ticketing") {
-      redirect(`/admin/existing/${source}/${encodeURIComponent(userId)}?error=${encodeURIComponent(message.slice(0, 240))}`);
+      redirect(adminExistingReviewUrl(source, userId, filters.q, filters.status, message));
     }
-    back(message, true);
+    back(message, true, "members", undefined, filters);
   }
-  back(failed ? "Existing user approved; review failed assignments." : "Existing user approved.", failed);
+  back(failed ? "Existing user approved; review failed assignments." : "Existing user approved.", failed, "members", undefined, filters);
 }
 
 export async function setVisibility(form: FormData) {
@@ -107,23 +111,23 @@ export async function setVisibility(form: FormData) {
   const userId = value(form, "userId");
   const app = value(form, "app");
   const visible = value(form, "visible") === "true";
-  if (!apps.includes(app)) back("This application is outside your administrator scope.", true, "members", userId);
+  if (!apps.includes(app)) backMember(form, "This application is outside your administrator scope.", true, userId);
   const result = await db().query<{ kind: string }>("select kind from aideck.members where user_id=$1", [userId]);
-  if (app === "ticketing" && result.rows[0]?.kind === "staff" && !visible) back("GT staff always have a Ticketing entry.", true, "members", userId);
+  if (app === "ticketing" && result.rows[0]?.kind === "staff" && !visible) backMember(form, "GT staff always have a Ticketing entry.", true, userId);
   await db().query("update aideck.assignments set visible=$3,updated_at=now() where user_id=$1 and app_key=$2", [userId, app, visible]);
   await db().query("insert into aideck.audit_events(actor_id,target_id,app_key,action,outcome) values ($1,$2,$3,$4,'ok')",
     [member.user_id, userId, app, visible ? "restore_entry" : "hide_entry"]);
-  back(visible ? "Entry restored." : "Entry hidden. Direct site access remains available.", false, "members", userId);
+  backMember(form, visible ? "Entry restored." : "Entry hidden. Direct site access remains available.", false, userId);
 }
 
 export async function retryProvision(form: FormData) {
   const { apps } = await requireAdministrator();
   const userId = value(form, "userId");
   const app = value(form, "app");
-  if (!apps.includes(app)) back("This application is outside your administrator scope.", true, "members", userId);
+  if (!apps.includes(app)) backMember(form, "This application is outside your administrator scope.", true, userId);
   try { await provisionAssignment(userId, app); }
-  catch (error) { back(error instanceof Error ? error.message : "Provisioning failed.", true, "members", userId); }
-  back("Provisioning completed.", false, "members", userId);
+  catch (error) { backMember(form, error instanceof Error ? error.message : "Provisioning failed.", true, userId); }
+  backMember(form, "Provisioning completed.", false, userId);
 }
 
 export async function assignApplication(form: FormData) {
@@ -131,23 +135,23 @@ export async function assignApplication(form: FormData) {
   const userId = value(form, "userId");
   const app = value(form, "app");
   if (!apps.includes(app) || !["signora", "ticketing", "riskscreen"].includes(app)) {
-    back("This application is outside your administrator scope.", true, "members", userId);
+    backMember(form, "This application is outside your administrator scope.", true, userId);
   }
-  if (app === "riskscreen" && !member.is_superadmin) back("Only a Super administrator can assign RiskScreen.", true, "members", userId);
+  if (app === "riskscreen" && !member.is_superadmin) backMember(form, "Only a Super administrator can assign RiskScreen.", true, userId);
   const target = await db().query<{ kind: string; ticketing_department_id: string | null }>(
     "select kind,ticketing_department_id from aideck.members where user_id=$1", [userId],
   );
-  if (!target.rows[0]) back("Member not found.", true, "members", userId);
-  if (!member.is_superadmin && target.rows[0].kind !== "staff") back("Site administrators can assign only GT staff.", true, "members", userId);
+  if (!target.rows[0]) backMember(form, "Member not found.", true, userId);
+  if (!member.is_superadmin && target.rows[0].kind !== "staff") backMember(form, "Site administrators can assign only GT staff.", true, userId);
   if (app === "ticketing" && (!target.rows[0].ticketing_department_id || target.rows[0].kind !== "staff")) {
-    back("A GT staff member with a Ticketing department is required.", true, "members", userId);
+    backMember(form, "A GT staff member with a Ticketing department is required.", true, userId);
   }
   const role = app === "signora" ? value(form, "role") : app === "ticketing" ? "employee" : null;
   const organizationId = app === "signora" ? value(form, "organizationId") : null;
   if (app === "signora") {
-    if (!organizationId || !["junior", "senior"].includes(role ?? "")) back("Choose an ordinary Signora role and Organization.", true, "members", userId);
+    if (!organizationId || !["junior", "senior"].includes(role ?? "")) backMember(form, "Choose an ordinary Signora role and Organization.", true, userId);
     const organization = await db().query("select 1 from signora.organizations where id=$1", [organizationId]);
-    if (!organization.rowCount) back("The Signora Organization does not exist.", true, "members", userId);
+    if (!organization.rowCount) backMember(form, "The Signora Organization does not exist.", true, userId);
   }
   await db().query(
     `insert into aideck.assignments(user_id,app_key,site_role,organization_id,visible,provision_status)
@@ -162,17 +166,17 @@ export async function assignApplication(form: FormData) {
     await db().query("insert into aideck.audit_events(actor_id,target_id,app_key,action,outcome) values($1,$2,$3,'assign_application','ok')",
       [member.user_id, userId, app]);
   } catch (error) {
-    back(error instanceof Error ? error.message : "Provisioning failed.", true, "members", userId);
+    backMember(form, error instanceof Error ? error.message : "Provisioning failed.", true, userId);
   }
-  back("Application assigned.", false, "members", userId);
+  backMember(form, "Application assigned.", false, userId);
 }
 
 export async function setOrdinarySignoraRole(form: FormData) {
   const { member, apps } = await requireAdministrator();
-  if (!apps.includes("signora")) back("Signora is outside your administrator scope.", true);
+  if (!apps.includes("signora")) backMember(form, "Signora is outside your administrator scope.", true);
   const userId = value(form, "userId");
   const role = value(form, "role");
-  if (!["junior", "senior"].includes(role)) back("Only ordinary Signora roles can be selected here.", true, "members", userId);
+  if (!["junior", "senior"].includes(role)) backMember(form, "Only ordinary Signora roles can be selected here.", true, userId);
   const client = await db().connect();
   try {
     await client.query("begin");
@@ -191,18 +195,18 @@ export async function setOrdinarySignoraRole(form: FormData) {
     await client.query("commit");
   } catch (error) {
     await client.query("rollback");
-    back(error instanceof Error ? error.message : "Role change failed.", true, "members", userId);
+    backMember(form, error instanceof Error ? error.message : "Role change failed.", true, userId);
   } finally { client.release(); }
-  back("Signora role updated.", false, "members", userId);
+  backMember(form, "Signora role updated.", false, userId);
 }
 
 export async function setSiteAdministrator(form: FormData) {
   const { member } = await requireAdministrator();
-  if (!member.is_superadmin) back("Only a Super administrator can change site administrators.", true);
+  if (!member.is_superadmin) backMember(form, "Only a Super administrator can change site administrators.", true, value(form, "userId"));
   const userId = value(form, "userId");
   const app = value(form, "app");
   const grant = value(form, "grant") === "true";
-  if (app !== "signora" && app !== "ticketing") back("Only connected websites can have site administrators.", true, "members", userId);
+  if (app !== "signora" && app !== "ticketing") backMember(form, "Only connected websites can have site administrators.", true, userId);
   const client = await db().connect();
   try {
     await client.query("begin");
@@ -245,9 +249,9 @@ export async function setSiteAdministrator(form: FormData) {
     await client.query("commit");
   } catch (error) {
     await client.query("rollback");
-    back(error instanceof Error ? error.message : "Role change failed.", true, "members", userId);
+    backMember(form, error instanceof Error ? error.message : "Role change failed.", true, userId);
   } finally { client.release(); }
-  back(grant ? "Site administrator granted." : "Site administrator revoked.", false, "members", userId);
+  backMember(form, grant ? "Site administrator granted." : "Site administrator revoked.", false, userId);
 }
 
 export async function addUpcomingApplication(form: FormData) {

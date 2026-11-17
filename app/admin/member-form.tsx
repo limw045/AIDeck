@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { Icon, type IconName } from "@/app/components/symbols";
-import { applicationNames, readableLabel } from "@/lib/admin-ui";
+import { adminExistingUrl, applicationNames, readableLabel, type AdminMemberFilters } from "@/lib/admin-ui";
 import { inviteMember, approveExisting } from "./actions";
 import MemberDepartmentFields from "./member-department-fields";
 import SubmitButton from "./submit-button";
@@ -13,8 +13,8 @@ type ExistingMember = { id: string; email: string; name: string | null; role: st
 
 const applicationIcons: Record<string, IconName> = { ticketing: "ticket", signora: "pen", riskscreen: "shield" };
 
-export default function MemberForm({ departments, organizations, apps, allowClient, existing }: {
-  departments: Option[]; organizations: Option[]; apps: string[]; allowClient: boolean; existing?: ExistingMember;
+export default function MemberForm({ departments, organizations, apps, allowClient, existing, filters = { q: "", status: "all" } }: {
+  departments: Option[]; organizations: Option[]; apps: string[]; allowClient: boolean; existing?: ExistingMember; filters?: AdminMemberFilters;
 }) {
   const [kind, setKind] = useState<"staff" | "client">("staff");
   const [signora, setSignora] = useState(existing?.source === "signora");
@@ -24,7 +24,7 @@ export default function MemberForm({ departments, organizations, apps, allowClie
   const available = ["ticketing", "signora", "riskscreen"].filter((app) => apps.includes(app) || (app === "ticketing" && automaticTicketing));
 
   return <form action={existing ? approveExisting : inviteMember} className="admin-member-form">
-    {existing && <><input type="hidden" name="userId" value={existing.id} /><input type="hidden" name="source" value={existing.source} /></>}
+    {existing && <><input type="hidden" name="userId" value={existing.id} /><input type="hidden" name="source" value={existing.source} /><input type="hidden" name="q" value={filters.q} /><input type="hidden" name="status" value={filters.status} /></>}
     <div className="admin-form-columns">
       <div>
         <section className="admin-card" aria-labelledby="member-details-heading">
@@ -62,6 +62,6 @@ export default function MemberForm({ departments, organizations, apps, allowClie
         </fieldset>
       </aside>
     </div>
-    <div className="admin-form-footer"><Link className="button secondary" href={existing ? "/admin?section=existing" : "/admin?section=members"}>Cancel</Link><SubmitButton pendingLabel={existing ? "Approving…" : "Sending invitation…"}><Icon name={existing ? "check" : "mail"} size={16} />{existing ? "Approve for workspace" : "Invite or add member"}</SubmitButton></div>
+    <div className="admin-form-footer"><Link className="button secondary" href={existing ? adminExistingUrl(filters.q, filters.status) : "/admin?section=members"}>Cancel</Link><SubmitButton pendingLabel={existing ? "Approving…" : "Sending invitation…"}><Icon name={existing ? "check" : "mail"} size={16} />{existing ? "Approve for workspace" : "Invite or add member"}</SubmitButton></div>
   </form>;
 }

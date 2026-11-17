@@ -33,6 +33,7 @@ function loadComponent(filename) {
 }
 
 const MemberForm = loadComponent(resolve(root, "app/admin/member-form.tsx")).default;
+const MemberDepartmentFields = loadComponent(resolve(root, "app/admin/member-department-fields.tsx")).default;
 const options = { departments: [{ id: "department", name: "Audit" }], organizations: [{ id: "org", name: "Example organization" }], apps: ["signora", "ticketing", "riskscreen"], allowClient: true };
 const render = (props) => renderToStaticMarkup(React.createElement(MemberForm, { ...options, ...props }));
 
@@ -59,4 +60,12 @@ test("existing Signora approval preserves identity, role and organization", () =
     if (role === "superadmin") assert.doesNotMatch(html, /<select[^>]*name="organizationId"[^>]*required=""/);
     assert.match(html, /href="\/admin\?section=existing"/);
   }
+});
+
+test("client invite hides employment choices and submits the required full-time default", () => {
+  const html = renderToStaticMarkup(React.createElement(MemberDepartmentFields, {
+    departments: [], allowClient: true, kind: "client", onKindChange() {}, ticketingSelected: false,
+  }));
+  assert.match(html, /<input type="hidden" name="employeeType" value="full_time"\/>/);
+  assert.doesNotMatch(html, /<select[^>]*name="employeeType"/);
 });
